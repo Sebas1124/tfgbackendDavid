@@ -1,10 +1,13 @@
-const express           = require('express');
-const cors              = require('cors');
-const multer            = require('multer');
-const { v4: uuidv4 }    = require('uuid');
-const fs                = require('fs');
-const path              = require('path');
-const bodyParser        = require('body-parser');
+require('dotenv').config();
+
+const express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+const path = require('path');
+const bodyParser = require('body-parser');
+const jwt = require('jsonwebtoken');
 
 // Rutas
 const filesRoutes = require('./routes/filesRoutes')
@@ -14,8 +17,10 @@ const authRoutes = require('./routes/authRoutes')
 const sequelize = require('./config/database');
 
 // modelos 
-const User = require('./models/User');
+require('./models/User');
+const userFiles = require('./models/UsersFiles');
 const { default: helmet } = require('helmet');
+const { FormatNamesFiles } = require('./utils/helpers');
 
 const app = express();
 app.use(cors());
@@ -25,17 +30,41 @@ app.use(express.json({ extended: true }));
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        if(!fs.existsSync('uploads')) {
-            fs.mkdirSync('uploads');
+    destination: async(req, file, cb) => {
+
+        const token = req.header('Authorization')?.split(' ')[1];
+
+        if (!token) return res.status(401).json({ message: 'Acceso denegado' });
+
+        const verified = jwt.verify(token, process.env.SECRET_JWT);
+        req.user = verified;
+
+        const userId = verified.id;
+        const userDir = path.join(__dirname, 'uploads', userId);
+
+        if (!fs.existsSync(userDir)) {
+            fs.mkdirSync(userDir, { recursive: true });
         }
-        cb(null, 'uploads/');
+
+        cb(null, userDir);
+
+        // guardar la ruta en la base de datos
+        const filePath = process.env.SERVER_URL + `/uploads/${userId}/${FormatNamesFiles(file.originalname)}`; // "http://localhost:4000/uploads/userId/fileName.jpg"
+        const fileName = FormatNamesFiles(file.originalname); // "fileName.jpg"
+
+        const fileData = {
+            userId,
+            fileName,
+            filePath
+        };
+
+        await userFiles.create(fileData)
     },
     filename: (req, file, cb) => {
-        const uniqueName = `${uuidv4()}-${path.extname(file.originalname)}`
+        const uniqueName = `${FormatNamesFiles(file.originalname)}`;
         cb(null, uniqueName);
     }
-})
+});
 
 const upload = multer({ storage });
 
@@ -45,7 +74,7 @@ app.use(upload.any());
 app.use('/api', filesRoutes);
 app.use("/api/auth", authRoutes)
 
-app.use("/uploads", express.static("/uploads"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const PORT = process.env.PORT || 5000;
 

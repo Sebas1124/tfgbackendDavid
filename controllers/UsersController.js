@@ -81,10 +81,17 @@ const login = async(req, res) => {
             { expiresIn: '24h' }
         );
 
+        const userData = {
+            name: user.name,
+            email: user.email,
+            id: user.id,
+        }
+
         res.status(200).json({
             ok: true,
             message: "Usuario logueado correctamente",
-            token
+            token,
+            user: userData
         });
 
     } catch (error) {
@@ -121,10 +128,17 @@ const verifyTokenController = async(req, res) => {
             { expiresIn: '24h' }
         );
 
+        const userData = {
+            name: user.name,
+            email: user.email,
+            id: user.id,
+        }
+
         res.status(200).json({
             ok: true,
             message: "Token verificado correctamente",
-            token: newToken
+            token: newToken,
+            user: userData
         });
 
     } catch (error) {
