@@ -1,12 +1,32 @@
 const UserFiles = require("../models/UsersFiles");
+const { FormatNamesFiles } = require("../utils/helpers");
 
 const processFIle = (req, res) => {
-   
 
-    res.status(200).json({
-        message: 'File processed successfully',
-        file: req.file,
-    });
+    try{
+
+        const file = req.files[0];
+
+        const userId = req.user.id; // id del usuario que sube el archivo
+        const filePath = process.env.SERVER_URL + `/uploads/${userId}/${FormatNamesFiles(file.originalname)}`; 
+        const fileName = FormatNamesFiles(file.originalname); // "fileName.jpg"
+
+        res.status(200).json({
+            ok: true,
+            message: 'Imagen subida correctamente',
+            filePath,
+            fileName,
+        });
+
+    }catch(error){
+        console.log(error)
+        res.status(500).json({
+            ok: false,
+            message: "Error al procesar el archivo",
+            error: error.message
+        })
+    }
+    
 }
 
 const saveFile = (req, res) => {
