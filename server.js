@@ -19,6 +19,8 @@ const sequelize = require('./config/database');
 // modelos 
 require('./models/User');
 const userFiles = require('./models/UsersFiles');
+const FilesElements = require('./models/FilesElements');
+
 const { default: helmet } = require('helmet');
 const { FormatNamesFiles } = require('./utils/helpers');
 
@@ -34,7 +36,7 @@ const storage = multer.diskStorage({
 
         const token = req.header('Authorization')?.split(' ')[1];
 
-        if (!token) return res.status(401).json({ message: 'Acceso denegado' });
+        if (!token) throw new Error('Acceso denegado');
 
         const verified = jwt.verify(token, process.env.SECRET_JWT);
         req.user = verified;

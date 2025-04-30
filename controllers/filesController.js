@@ -1,7 +1,7 @@
 const UserFiles = require("../models/UsersFiles");
 const { FormatNamesFiles } = require("../utils/helpers");
 
-const processFIle = (req, res) => {
+const processFIle = async(req, res) => {
 
     try{
 
@@ -10,12 +10,20 @@ const processFIle = (req, res) => {
         const userId = req.user.id; // id del usuario que sube el archivo
         const filePath = process.env.SERVER_URL + `/uploads/${userId}/${FormatNamesFiles(file.originalname)}`; 
         const fileName = FormatNamesFiles(file.originalname); // "fileName.jpg"
+        
+        const imageData = await UserFiles.findOne({
+            where: {
+                userId,
+                filePath
+            }
+        });
 
         res.status(200).json({
             ok: true,
             message: 'Imagen subida correctamente',
             filePath,
             fileName,
+            fileId: imageData.id
         });
 
     }catch(error){
