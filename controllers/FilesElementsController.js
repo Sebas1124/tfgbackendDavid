@@ -1,11 +1,10 @@
+const { Op } = require("sequelize");
 const FilesElements = require("../models/FilesElements");
 const fs = require("fs");
 
 const saveElementsInBd = async (req, res) => {
 
     const { elements, fileId: imageId } = req.body;
-    console.log("Elements: ", elements)
-    console.log("FileId: ", imageId)
 
     if (!elements || !imageId)
         return res.status(400).json({ message: "No ha enviado los elementos" });
@@ -64,6 +63,30 @@ const saveElementsInBd = async (req, res) => {
 
     // Guardar los elementos en la base de datos
     try {
+
+        // verificar si los elementos ya existen en la base de datos, si existen, no los guardo de nuevo y los actualizo
+
+        const existingElements = await FilesElements.findAll({
+            where: {
+                imageId: imageId,
+                elementId: elementsToSave.map(element => element.elementId),
+                type: { [Op.ne]: 'Imagen' } // Filtrar elementos cuyo tipo sea diferente de 'Imagen'
+            }
+        });
+
+        const existingElementIds = existingElements.map(element => element.id);
+
+        if (existingElementIds.length > 0) {
+            // eliminar los elementos existentes que no están en el nuevo array
+            for (const element of existingElements) {
+                await FilesElements.destroy({
+                    where: {
+                        id: element.id
+                    }
+                });
+            }
+        }
+        
         await FilesElements.bulkCreate(elementsToSave);
 
         return res.status(200).json({
@@ -77,6 +100,32 @@ const saveElementsInBd = async (req, res) => {
     }
 }
 
+const getElementsByImageId = async (req, res) => {
+
+    const { imageId } = req.body;
+
+    if (!imageId) return res.status(400).json({ message: "No ha enviado el id de la imagen" });
+
+    try {
+        const elements = await FilesElements.findAll({
+            where: {
+                imageId: imageId
+            }
+        });
+
+        return res.status(200).json({
+            message: "Elementos obtenidos correctamente",
+            elements: elements
+        });
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ message: "Error al obtener los elementos", error: error.message });
+    }
+
+}
+
 module.exports = {
-    saveElementsInBd
+    saveElementsInBd,
+    getElementsByImageId
 }
