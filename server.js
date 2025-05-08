@@ -26,9 +26,9 @@ const { FormatNamesFiles } = require('./utils/helpers');
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.json({ extended: true }));
+app.use(bodyParser.json({ limit: '100mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '100mb' }));
+app.use(express.json({ limit: '100mb' }));
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 
 const storage = multer.diskStorage({

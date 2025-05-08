@@ -70,11 +70,12 @@ const saveElementsInBd = async (req, res) => {
             where: {
                 imageId: imageId,
                 elementId: elementsToSave.map(element => element.elementId),
-                type: { [Op.ne]: 'Imagen' } // Filtrar elementos cuyo tipo sea diferente de 'Imagen'
             }
         });
 
-        const existingElementIds = existingElements.map(element => element.id);
+        const existingElementIds = existingElements
+        .filter((element) => element.type !== 'Imagen')
+            .map(element => element.id);
 
         if (existingElementIds.length > 0) {
             // eliminar los elementos existentes que no están en el nuevo array
@@ -86,8 +87,31 @@ const saveElementsInBd = async (req, res) => {
                 });
             }
         }
-        
-        await FilesElements.bulkCreate(elementsToSave);
+
+        const imagesToSkip = elementsToSave.filter((element) => element.type === 'Imagen')
+            .map(element => element.elementId);
+
+        // Verificar si la imagen ya existe en la base de datos
+        const existingImages = await FilesElements.findAll({
+            where: {
+                imageId: imageId,
+                elementId: imagesToSkip,
+            }
+        });
+
+        // si existen no los guardo de nuevo y los actualizo
+        const existingImageIds = existingImages.map(element => element.elementId);
+
+        const finalElementsToSave = elementsToSave.filter((element) => {
+            if (element.type === 'Imagen') {
+                return !existingImageIds.includes(element.elementId);
+            } else {
+                return !existingElementIds.includes(element.id);
+            }
+        });
+
+        // Guardar los elementos en la base de datos
+        await FilesElements.bulkCreate(finalElementsToSave);
 
         return res.status(200).json({
             message: "Elementos guardados correctamente",
@@ -125,7 +149,112 @@ const getElementsByImageId = async (req, res) => {
 
 }
 
+const deleteElementById = async (req, res) => {
+
+    const { elementId } = req.body;
+
+    if (!elementId) return res.status(400).json({
+        ok: false,
+        message: "No ha enviado el id del elemento" 
+    });
+
+    try {
+
+        let element = await FilesElements.findOne({
+            where: {
+                elementId: elementId
+            }
+        });
+
+        if (!element){
+            element = await FilesElements.findOne({
+                where: {
+                    id: elementId
+                }
+            });
+        }
+
+        if (!element) return res.status(404).json({ message: "Elemento no encontrado" });
+
+        // eliminar la imagen del servidor si existe
+        if (element.imagePath) {
+            const filePath = element.imagePath.replace(process.env.SERVER_URL + "/", "");
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        }
+
+        // eliminar el elemento de la base de datos
+        await FilesElements.destroy({
+            where: {
+                id: element.id
+            }
+        });
+
+        return res.status(200).json({
+            message: "Elemento eliminado correctamente",
+            element: element
+        });
+
+    } catch (error) {
+        return res.status(500).json({ message: "Error al eliminar el elemento", error: error.message });
+    }
+
+}
+
+const updateElementById = async(req, res) => {
+
+    const { elementId, ...data } = req.body;
+
+    if (!elementId) return res.status(400).json({
+        ok: false,
+        message: "No ha enviado el id del elemento" 
+    });
+
+    try {
+        let element = await FilesElements.findOne({
+            where: {
+                elementId: elementId
+            }
+        });
+
+        if (!element){
+            element = await FilesElements.findOne({
+                where: {
+                    id: elementId
+                }
+            });
+        }
+
+        if (!element) return res.status(404).json({ ok:false, message: "Elemento no encontrado" });
+
+        // buscar elemento en la bd
+        const dataToUpdate = {
+            ...data.data,
+            updatedAt: new Date()
+        }
+
+        // actualizar el elemento en la bd
+        await FilesElements.update(dataToUpdate, {
+            where: {
+                id: element.id
+            }
+        });
+
+        return res.status(200).json({
+            message: "Elemento actualizado correctamente",
+            element: element
+        });
+
+    } catch (error) {
+        return res.status(500).json({ message: "Error al actualizar el elemento", error: error.message });
+    }
+
+}
+
 module.exports = {
     saveElementsInBd,
-    getElementsByImageId
+    getElementsByImageId,
+    deleteElementById,
+    updateElementById
 }
