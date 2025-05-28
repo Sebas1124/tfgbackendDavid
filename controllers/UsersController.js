@@ -42,7 +42,12 @@ const register = async(req, res) => {
         res.status(201).json({
             ok: true,
             message: "Usuario creado correctamente",
-            token
+            token,
+            user: {
+                name: user.name,
+                email: user.email,
+                id: user.id
+            }
         });
         
     } catch (error) {
