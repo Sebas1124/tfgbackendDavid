@@ -64,8 +64,33 @@ const saveElementsInBd = async (req, res) => {
     // Guardar los elementos en la base de datos
     try {
 
-        // verificar si los elementos ya existen en la base de datos, si existen, no los guardo de nuevo y los actualizo
+        // Verificar si existe el elementId en la base de datos no es necesario guardarlo nuevamente
+        const existElemenIds = elementsToSave.map(element => element.elementId);
+        const existingElementsIds = await FilesElements.findAll({
+            where: {
+                elementId: {
+                    [Op.in]: existElemenIds
+                },
+            }
+        });
 
+        // si ya existen los elementos, no los guardo de nuevo
+        if (existingElementsIds.length > 0) {
+            const existingElementIds = existingElementsIds.map(element => element.elementId);
+            // filtrar los elementos que no existen en la base de datos
+            const filteredElements = elementsToSave.filter(element => !existingElementIds.includes(element.elementId));
+            // si no hay elementos para guardar, retorno un mensaje
+            if (filteredElements.length === 0) {
+                return res.status(200).json({
+                    message: "Los elementos ya existen en la base de datos",
+                    elements: existingElementsIds
+                });
+            }
+            // si hay elementos para guardar, los guardo
+            elementsToSave = filteredElements;
+        }
+
+        // verificar si los elementos ya existen en la base de datos, si existen, no los guardo de nuevo y los actualizo
         const existingElements = await FilesElements.findAll({
             where: {
                 imageId: imageId,
